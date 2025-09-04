@@ -23,8 +23,8 @@ import java.text.NumberFormat;
 
 public class Main extends AbstractScript {
     
-    // Tithe Farm area (updated coordinates provided)
-    private final Area TITHE_FARM_AREA = new Area(new Tile(13408, 6614), new Tile(13434, 6643));
+    // Tithe Farm area (updated coordinates for specific area)
+    private final Area TITHE_FARM_AREA = new Area(new Tile(12637, 14324), new Tile(12667, 14295));
     
     // House area with seed table
     private final Tile HOUSE_CENTER = new Tile(1799, 3502);
@@ -81,8 +81,9 @@ public class Main extends AbstractScript {
             return State.GETTING_SEEDS;
         }
         
-        // Check if we have seeds but not in farming area (need to enter farm)
-        if (hasSeeds() && HOUSE_AREA.contains(Players.getLocal()) && !TITHE_FARM_AREA.contains(Players.getLocal())) {
+        // Check if we have seeds but not near Tithe patches (need to enter farm)
+        boolean nearTithePatches = GameObjects.closest("Tithe patch") != null;
+        if (hasSeeds() && HOUSE_AREA.contains(Players.getLocal()) && !nearTithePatches) {
             return State.ENTERING_FARM;
         }
         
@@ -134,8 +135,8 @@ public class Main extends AbstractScript {
     }
     
     private boolean hasHarvestedItems() {
-        // Check for common Tithe Farm harvest items - only deposit if we have at least 20
-        return Inventory.count("Golovanova fruit") >= 20;
+        // Check for common Tithe Farm harvest items - only deposit if we have at least 100
+        return Inventory.count("Golovanova fruit") >= 100;
     }
     
     private boolean allWateringCansEmpty() {
@@ -148,8 +149,27 @@ public class Main extends AbstractScript {
     }
     
     private boolean hasEmptyPatches() {
+        // Check if we already have 8 or more plants - if so, don't plant more
+        if (getActivePlantCount() >= 8) {
+            return false;
+        }
+        
         GameObject emptyPatch = GameObjects.closest("Tithe patch");
         return emptyPatch != null && emptyPatch.exists();
+    }
+    
+    private int getActivePlantCount() {
+        int plantCount = 0;
+        
+        // Count all Golovanova plants in various growth stages (not including dead ones)
+        for (GameObject plant : GameObjects.all(gameObject -> 
+            gameObject != null && 
+            gameObject.getName().contains("Golovanova") && 
+            !gameObject.hasAction("Clear"))) { // Exclude dead plants
+            plantCount++;
+        }
+        
+        return plantCount;
     }
     
     private boolean hasPlantsThatNeedWatering() {
@@ -182,9 +202,16 @@ public class Main extends AbstractScript {
             return;
         }
         
+        // Check plant limit before planting
+        int currentPlants = getActivePlantCount();
+        if (currentPlants >= 8) {
+            Logger.log("Plant limit reached (" + currentPlants + "/8 plants active). Not planting more.");
+            return;
+        }
+        
         GameObject emptyPatch = GameObjects.closest("Tithe patch");
         if (emptyPatch != null && emptyPatch.exists()) {
-            Logger.log("Planting Golovanova seed on empty patch...");
+            Logger.log("Planting Golovanova seed on empty patch... (" + currentPlants + "/8 plants active)");
             if (Inventory.interact("Golovanova seed", "Use")) {
                 Sleep.sleep(randomSleep(600, 1000));
                 if (emptyPatch.interact("Use")) {
@@ -192,7 +219,7 @@ public class Main extends AbstractScript {
                                    Inventory.count("Golovanova seed") < Inventory.count("Golovanova seed"), 
                                    randomSleep(6000, 10000)); // Increased sleep by 2x for more leniency
                     seedsPlanted++;
-                    Logger.log("Successfully planted seed! (Total: " + seedsPlanted + ")");
+                    Logger.log("Successfully planted seed! (Total: " + seedsPlanted + ") - Active plants: " + (currentPlants + 1) + "/8");
                 }
             }
         } else {
@@ -226,11 +253,18 @@ public class Main extends AbstractScript {
             Logger.log("Harvesting ready plant using direct Harvest action...");
             // Ensure we're not using any inventory item - direct plant interaction only
             if (readyPlant.hasAction("Harvest") && readyPlant.interact("Harvest")) {
+                int fruitCountBefore = Inventory.count("Golovanova fruit");
                 Sleep.sleepUntil(() -> !readyPlant.exists() || 
-                               Inventory.contains("Golovanova fruit"), 
+                               Inventory.count("Golovanova fruit") > fruitCountBefore, 
                                randomSleep(6000, 10000)); // Increased sleep by 2x for more leniency
-                plantsHarvested++;
-                Logger.log("Successfully harvested plant! (Total: " + plantsHarvested + ")");
+                
+                // Only increment counter if we actually got fruit (successful harvest)
+                if (Inventory.count("Golovanova fruit") > fruitCountBefore) {
+                    plantsHarvested++;
+                    Logger.log("Successfully harvested plant! (Total: " + plantsHarvested + ")");
+                } else {
+                    Logger.log("Harvest attempt completed but no fruit gained");
+                }
             } else {
                 Logger.log("Could not harvest plant - Harvest action not available");
             }
@@ -350,7 +384,7 @@ public class Main extends AbstractScript {
                     Logger.log("In dialogue, selecting second option to enter farming area...");
                     if (Dialogues.areOptionsAvailable()) {
                         if (Dialogues.chooseOption(2)) { // Select second option (index 2)
-                            Sleep.sleepUntil(() -> TITHE_FARM_AREA.contains(Players.getLocal()) || !Dialogues.inDialogue(), 
+                            Sleep.sleepUntil(() -> GameObjects.closest("Tithe patch") != null || !Dialogues.inDialogue(), 
                                            randomSleep(5000, 8000));
                             Logger.log("Successfully entered farming area!");
                         } else {
@@ -394,9 +428,10 @@ public class Main extends AbstractScript {
     
     @Override
     public int onLoop() {
-        // Check if we're in the Tithe Farm area or House area, if not, just wait
-        if (!TITHE_FARM_AREA.contains(Players.getLocal()) && !HOUSE_AREA.contains(Players.getLocal())) {
-            Logger.log("Not in Tithe Farm area or House area. Please manually navigate to the Tithe Farm.");
+        // Check if we're near Tithe patches or in House area, if not, just wait
+        boolean nearTithePatches = GameObjects.closest("Tithe patch") != null;
+        if (!nearTithePatches && !HOUSE_AREA.contains(Players.getLocal())) {
+            Logger.log("Not near Tithe patches or in House area. Please manually navigate to the Tithe Farm.");
             return randomSleep(5000, 8000); // Wait longer before checking again
         }
         
