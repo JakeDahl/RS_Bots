@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="SpikeJumper:jar">
-    <output-path>$USER_HOME$/DreamBot/Scripts</output-path>
-    <root id="archive" name="SpikeJumper.jar">
-      <element id="module-output" name="SpikeJumper" />
-    </root>
-  </artifact>
-</component>

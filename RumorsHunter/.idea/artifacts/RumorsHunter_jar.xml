@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="RumorsHunter:jar">
-    <output-path>$USER_HOME$/DreamBot/Scripts</output-path>
-    <root id="archive" name="RumorsHunter.jar">
-      <element id="module-output" name="RumorsHunter" />
-    </root>
-  </artifact>
-</component>
