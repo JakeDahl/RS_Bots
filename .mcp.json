@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "print-arg-server": {
+      "command": "python3",
+      "args": [
+        "/Users/jakedahl/Documents/Cline/MCP/print-arg-server/server.py"
+      ],
+      "cwd": "/Users/jakedahl/Documents/Cline/MCP/print-arg-server",
+      "disabled": false,
+      "autoApprove": [
+        "dreambot_overview",
+        "dreambot_package",
+        "dreambot_member"
+      ]
+    }
+  }
+}
