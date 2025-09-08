@@ -57,7 +57,12 @@ public class Main extends AbstractScript {
     public void onStart() {
         Logger.log("Tithe Farm Bot started!");
         Logger.log("Target: Tithe Farm minigame");
-        Logger.log("Seeds: Golovanova seeds");
+        
+        // Determine seed type based on farming level
+        int currentLevel = Skill.FARMING.getLevel();
+        String seedType = getSeedType();
+        Logger.log("Current Farming Level: " + currentLevel);
+        Logger.log("Seeds: " + seedType);
         Logger.log("Will plant, water, harvest, and deposit automatically");
         
         // Initialize XP tracking
@@ -69,10 +74,27 @@ public class Main extends AbstractScript {
         
         // Check if player has required items
         if (!hasRequiredItems()) {
-            Logger.log("WARNING: Make sure you have Golovanova seeds and watering cans!");
+            Logger.log("WARNING: Make sure you have " + seedType + " and watering cans!");
         } else {
             Logger.log("Required items detected - ready to farm!");
         }
+    }
+    
+    // Helper methods to get seed/plant types based on farming level
+    private String getSeedType() {
+        return Skill.FARMING.getLevel() >= 54 ? "Bologano seed" : "Golovanova seed";
+    }
+    
+    private String getPlantType() {
+        return Skill.FARMING.getLevel() >= 54 ? "Bologano" : "Golovanova";
+    }
+    
+    private String getFruitType() {
+        return Skill.FARMING.getLevel() >= 54 ? "Bologano fruit" : "Golovanova fruit";
+    }
+    
+    private String getSeedDialogueOption() {
+        return Skill.FARMING.getLevel() >= 54 ? "Bologano seed (level 54)" : "Golovanova seed (level 34)";
     }
     
     private State getState() {
@@ -122,7 +144,7 @@ public class Main extends AbstractScript {
     }
     
     private boolean hasRequiredItems() {
-        return Inventory.contains("Golovanova seed") && 
+        return Inventory.contains(getSeedType()) && 
                (Inventory.contains("Watering can") || Inventory.contains("Watering can(8)") || 
                 Inventory.contains("Watering can(7)") || Inventory.contains("Watering can(6)") ||
                 Inventory.contains("Watering can(5)") || Inventory.contains("Watering can(4)") ||
@@ -131,12 +153,12 @@ public class Main extends AbstractScript {
     }
     
     private boolean hasSeeds() {
-        return Inventory.contains("Golovanova seed");
+        return Inventory.contains(getSeedType());
     }
     
     private boolean hasHarvestedItems() {
         // Check for common Tithe Farm harvest items - only deposit if we have at least 100
-        return Inventory.count("Golovanova fruit") >= 100;
+        return Inventory.count(getFruitType()) >= 100;
     }
     
     private boolean allWateringCansEmpty() {
@@ -161,10 +183,11 @@ public class Main extends AbstractScript {
     private int getActivePlantCount() {
         int plantCount = 0;
         
-        // Count all Golovanova plants in various growth stages (not including dead ones)
+        // Count all plants in various growth stages (not including dead ones)
+        String plantType = getPlantType();
         for (GameObject plant : GameObjects.all(gameObject -> 
             gameObject != null && 
-            gameObject.getName().contains("Golovanova") && 
+            gameObject.getName().contains(plantType) && 
             !gameObject.hasAction("Clear"))) { // Exclude dead plants
             plantCount++;
         }
@@ -174,24 +197,27 @@ public class Main extends AbstractScript {
     
     private boolean hasPlantsThatNeedWatering() {
         // Look for planted patches that might need watering
+        String plantType = getPlantType();
         GameObject plantedPatch = GameObjects.closest(gameObject -> 
-            gameObject != null && gameObject.getName().contains("Golovanova") && 
+            gameObject != null && gameObject.getName().contains(plantType) && 
             gameObject.hasAction("Water"));
         return plantedPatch != null;
     }
     
     private boolean hasReadyPlants() {
         // Look for fully grown plants ready to harvest
+        String plantType = getPlantType();
         GameObject readyPlant = GameObjects.closest(gameObject -> 
-            gameObject != null && gameObject.getName().contains("Golovanova") && 
+            gameObject != null && gameObject.getName().contains(plantType) && 
             gameObject.hasAction("Harvest"));
         return readyPlant != null;
     }
     
     private boolean hasDeadPlants() {
         // Look for dead plants that need to be cleared
+        String plantType = getPlantType();
         GameObject deadPlant = GameObjects.closest(gameObject -> 
-            gameObject != null && gameObject.getName().contains("Golovanova") && 
+            gameObject != null && gameObject.getName().contains(plantType) && 
             gameObject.hasAction("Clear"));
         return deadPlant != null;
     }
@@ -209,17 +235,22 @@ public class Main extends AbstractScript {
             return;
         }
         
+        String seedType = getSeedType();
         GameObject emptyPatch = GameObjects.closest("Tithe patch");
         if (emptyPatch != null && emptyPatch.exists()) {
-            Logger.log("Planting Golovanova seed on empty patch... (" + currentPlants + "/8 plants active)");
-            if (Inventory.interact("Golovanova seed", "Use")) {
+            Logger.log("Planting " + seedType + " on empty patch... (" + currentPlants + "/8 plants active)");
+            if (Inventory.interact(seedType, "Use")) {
                 Sleep.sleep(randomSleep(600, 1000));
                 if (emptyPatch.interact("Use")) {
+                    int seedCountBefore = Inventory.count(seedType);
                     Sleep.sleepUntil(() -> !emptyPatch.exists() || 
-                                   Inventory.count("Golovanova seed") < Inventory.count("Golovanova seed"), 
+                                   Inventory.count(seedType) < seedCountBefore, 
                                    randomSleep(6000, 10000)); // Increased sleep by 2x for more leniency
                     seedsPlanted++;
+                    // Deselect any selected inventory item after planting
+                    Inventory.deselect();
                     Logger.log("Successfully planted seed! (Total: " + seedsPlanted + ") - Active plants: " + (currentPlants + 1) + "/8");
+                    Logger.log("Deselected inventory item after planting seed");
                 }
             }
         } else {
@@ -228,48 +259,65 @@ public class Main extends AbstractScript {
     }
     
     private void waterPlants() {
+        // Check if an item is selected and deselect it before interacting with plants
+        if (Inventory.isItemSelected()) {
+            Logger.log("Item selected before watering plant - deselecting...");
+            Inventory.deselect();
+            Sleep.sleep(randomSleep(200, 400));
+        }
+        
+        String plantType = getPlantType();
         GameObject plantToWater = GameObjects.closest(gameObject -> 
-            gameObject != null && gameObject.getName().contains("Golovanova") && 
+            gameObject != null && gameObject.getName().contains(plantType) && 
             gameObject.hasAction("Water"));
             
         if (plantToWater != null && plantToWater.exists()) {
-            Logger.log("Watering plant...");
+            Logger.log("Watering " + plantType + " plant...");
             if (plantToWater.interact("Water")) {
                 Sleep.sleepUntil(() -> !plantToWater.hasAction("Water"), 
                                randomSleep(2000, 3000)); // Reduced timeout - condition should detect completion quickly
                 Logger.log("Successfully watered plant!");
             }
         } else {
-            Logger.log("No plants need watering at the moment");
+            Logger.log("No " + plantType + " plants need watering at the moment");
         }
     }
     
     private void harvestPlants() {
+        // Check if an item is selected and deselect it before interacting with plants
+        if (Inventory.isItemSelected()) {
+            Logger.log("Item selected before harvesting plant - deselecting...");
+            Inventory.deselect();
+            Sleep.sleep(randomSleep(200, 400));
+        }
+        
+        String plantType = getPlantType();
+        String fruitType = getFruitType();
         GameObject readyPlant = GameObjects.closest(gameObject -> 
-            gameObject != null && gameObject.getName().contains("Golovanova") && 
+            gameObject != null && gameObject.getName().contains(plantType) && 
             gameObject.hasAction("Harvest"));
             
         if (readyPlant != null && readyPlant.exists()) {
-            Logger.log("Harvesting ready plant using direct Harvest action...");
+            Logger.log("Harvesting ready " + plantType + " plant using direct Harvest action...");
             // Ensure we're not using any inventory item - direct plant interaction only
             if (readyPlant.hasAction("Harvest") && readyPlant.interact("Harvest")) {
-                int fruitCountBefore = Inventory.count("Golovanova fruit");
+                int fruitCountBefore = Inventory.count(fruitType);
                 Sleep.sleepUntil(() -> !readyPlant.exists() || 
-                               Inventory.count("Golovanova fruit") > fruitCountBefore, 
+                               Inventory.count(fruitType) > fruitCountBefore, 
                                randomSleep(6000, 10000)); // Increased sleep by 2x for more leniency
                 
                 // Only increment counter if we actually got fruit (successful harvest)
-                if (Inventory.count("Golovanova fruit") > fruitCountBefore) {
+                if (Inventory.count(fruitType) > fruitCountBefore) {
                     plantsHarvested++;
-                    Logger.log("Successfully harvested plant! (Total: " + plantsHarvested + ")");
+                    Logger.log("Successfully harvested " + plantType + " plant! (Total: " + plantsHarvested + ")");
                 } else {
-                    Logger.log("Harvest attempt completed but no fruit gained");
+                    Logger.log("Harvest attempt completed but no " + fruitType + " gained");
                 }
             } else {
-                Logger.log("Could not harvest plant - Harvest action not available");
+                Logger.log("Could not harvest " + plantType + " plant - Harvest action not available");
             }
         } else {
-            Logger.log("No plants ready for harvest");
+            Logger.log("No " + plantType + " plants ready for harvest");
         }
     }
     
@@ -315,6 +363,10 @@ public class Main extends AbstractScript {
             
             if (!allWateringCansEmpty()) {
                 Logger.log("Successfully refilled all watering cans!");
+                // Deselect any selected inventory item
+                Inventory.deselect();
+                Sleep.sleep(randomSleep(200, 400));
+                Logger.log("Deselected inventory item after filling watering cans");
             }
         } else {
             Logger.log("Could not find water barrel for refilling");
@@ -342,11 +394,12 @@ public class Main extends AbstractScript {
             if (seedTable.interact("Search")) {
                 Sleep.sleepUntil(() -> Dialogues.inDialogue(), randomSleep(3000, 5000));
                 
-                // Handle dialogue - select Golovanova seed option
+                // Handle dialogue - select appropriate seed option based on farming level
+                String seedOption = getSeedDialogueOption();
                 if (Dialogues.inDialogue()) {
-                    Logger.log("In dialogue, selecting Golovanova seed (level 34) option...");
+                    Logger.log("In dialogue, selecting " + seedOption + " option...");
                     if (Dialogues.areOptionsAvailable()) {
-                        if (Dialogues.chooseOption("Golovanova seed (level 34)")) {
+                        if (Dialogues.chooseOption(seedOption)) {
                             Sleep.sleepUntil(() -> Dialogues.canEnterInput() || !Dialogues.inDialogue(), randomSleep(2000, 3000));
                             
                             // Enter amount (10000)
@@ -354,10 +407,10 @@ public class Main extends AbstractScript {
                                 Logger.log("Entering seed amount: 10000");
                                 Keyboard.type("10000", true);
                                 Sleep.sleepUntil(() -> !Dialogues.inDialogue() || hasSeeds(), randomSleep(3000, 5000));
-                                Logger.log("Successfully obtained seeds!");
+                                Logger.log("Successfully obtained " + getSeedType() + "!");
                             }
                         } else {
-                            Logger.log("Could not find 'Golovanova seed (level 34)' option");
+                            Logger.log("Could not find '" + seedOption + "' option");
                         }
                     } else if (Dialogues.canContinue()) {
                         Dialogues.continueDialogue();
@@ -401,19 +454,27 @@ public class Main extends AbstractScript {
     }
     
     private void clearDeadPlants() {
+        // Check if an item is selected and deselect it before interacting with plants
+        if (Inventory.isItemSelected()) {
+            Logger.log("Item selected before clearing dead plant - deselecting...");
+            Inventory.deselect();
+            Sleep.sleep(randomSleep(200, 400));
+        }
+        
+        String plantType = getPlantType();
         GameObject deadPlant = GameObjects.closest(gameObject -> 
-            gameObject != null && gameObject.getName().contains("Golovanova") && 
+            gameObject != null && gameObject.getName().contains(plantType) && 
             gameObject.hasAction("Clear"));
             
         if (deadPlant != null && deadPlant.exists()) {
-            Logger.log("Clearing dead plant...");
+            Logger.log("Clearing dead " + plantType + " plant...");
             if (deadPlant.interact("Clear")) {
                 Sleep.sleepUntil(() -> !deadPlant.exists(), 
                                randomSleep(2000, 3000));
-                Logger.log("Successfully cleared dead plant!");
+                Logger.log("Successfully cleared dead " + plantType + " plant!");
             }
         } else {
-            Logger.log("No dead plants found to clear");
+            Logger.log("No dead " + plantType + " plants found to clear");
         }
     }
     
