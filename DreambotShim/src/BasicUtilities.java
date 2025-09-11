@@ -100,23 +100,6 @@ public class BasicUtilities {
     }
     
     /**
-     * Get game state information
-     */
-    public String getGameState() {
-        // This would normally query the actual game state
-        String gameState = "{"
-                + "\"player_level\": 42, "
-                + "\"location\": \"Varrock\", "
-                + "\"inventory_count\": 15, "
-                + "\"health\": 100, "
-                + "\"timestamp\": " + System.currentTimeMillis()
-                + "}";
-        
-        System.out.println("Game state from Java: " + gameState);
-        return gameState;
-    }
-    
-    /**
      * Log a message with specified level
      */
     public String logMessage(String level, String message) {

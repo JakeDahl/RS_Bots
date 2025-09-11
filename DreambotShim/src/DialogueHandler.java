@@ -60,6 +60,10 @@ public class DialogueHandler {
             }
 
             // Wait for dialogue to appear or timeout
+            long lastDialogueCheck = startTime;
+            boolean initialDialogueWaitPeriod = npcInteractionAttempted;
+            long dialogueWaitTimeout = 3000; // 3 seconds to wait for dialogue after NPC interaction
+            
             while (System.currentTimeMillis() - startTime < maxWaitMillis) {
                 try {
                     // Check for skip request
@@ -125,7 +129,24 @@ public class DialogueHandler {
                             return createSuccessResponse("Dialogue completed successfully", interactionCount, totalWaitTime);
                         }
                         
-                        // Wait for dialogue to appear
+                        // Check if we should stop waiting for dialogue
+                        long currentTime = System.currentTimeMillis();
+                        
+                        // If no NPC interaction was attempted and no dialogue is present, return immediately
+                        if (!npcInteractionAttempted) {
+                            Logger.log("Python->Java: No NPC interaction attempted and no active dialogue found");
+                            taskManager.setCurrentStep("Idle - Waiting for commands");
+                            return createSuccessResponse("No active dialogue found", 0, currentTime - startTime);
+                        }
+                        
+                        // If NPC interaction was attempted but no dialogue appeared after reasonable wait time
+                        if (initialDialogueWaitPeriod && (currentTime - startTime) > dialogueWaitTimeout) {
+                            Logger.log("Python->Java: NPC interaction attempted but no dialogue appeared after " + dialogueWaitTimeout + "ms");
+                            taskManager.setCurrentStep("Idle - Waiting for commands");
+                            return createSuccessResponse("No dialogue appeared after NPC interaction", 0, currentTime - startTime);
+                        }
+                        
+                        // Continue waiting for dialogue to appear
                         Sleep.sleep(300, 500);
                     }
                 } catch (Exception e) {

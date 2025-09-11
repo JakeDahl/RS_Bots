@@ -17,6 +17,7 @@ public class DreamBotAPIWrapper {
     private InventoryManager inventoryManager;
     private DialogueHandler dialogueHandler;
     private GameObjectInteractor gameObjectInteractor;
+    private GroundItemHandler groundItemHandler;
     
     public DreamBotAPIWrapper(TaskManager taskManager) {
         this.taskManager = taskManager;
@@ -29,6 +30,7 @@ public class DreamBotAPIWrapper {
         this.inventoryManager = new InventoryManager(taskManager);
         this.dialogueHandler = new DialogueHandler(taskManager, skipRequested);
         this.gameObjectInteractor = new GameObjectInteractor(taskManager);
+        this.groundItemHandler = new GroundItemHandler(taskManager);
     }
     
     // ===== Basic Utility Methods (delegated to BasicUtilities) =====
@@ -66,13 +68,6 @@ public class DreamBotAPIWrapper {
      */
     public String runDreambotAction(String action, String... params) {
         return basicUtilities.runDreambotAction(action, params);
-    }
-    
-    /**
-     * Get game state information
-     */
-    public String getGameState() {
-        return basicUtilities.getGameState();
     }
     
     /**
@@ -241,6 +236,71 @@ public class DreamBotAPIWrapper {
      */
     public String clickObject(String objectName) {
         return gameObjectInteractor.clickObject(objectName);
+    }
+    
+    /**
+     * List all nearby game objects within range
+     */
+    public String listNearbyGameObjects() {
+        return gameObjectInteractor.listNearbyGameObjects();
+    }
+    
+    /**
+     * Get game objects suitable for a specific action (e.g., "go up", "climb down", "enter")
+     */
+    public String getGameObjectsForAction(String action) {
+        return gameObjectInteractor.getGameObjectsForAction(action);
+    }
+    
+    /**
+     * Search for game objects by name or partial name match
+     */
+    public String searchGameObjects(String searchTerm) {
+        return gameObjectInteractor.searchGameObjects(searchTerm);
+    }
+    
+    /**
+     * Get detailed information about a specific game object
+     */
+    public String getObjectDetails(String objectName) {
+        return gameObjectInteractor.getObjectDetails(objectName);
+    }
+    
+    // ===== Ground Item Methods (delegated to GroundItemHandler) =====
+    
+    /**
+     * Pick up a ground item by name
+     */
+    public String pickupGroundItem(String itemName) {
+        return groundItemHandler.pickupGroundItem(itemName);
+    }
+    
+    /**
+     * Pick up a ground item by ID
+     */
+    public String pickupGroundItemById(int itemId) {
+        return groundItemHandler.pickupGroundItemById(itemId);
+    }
+    
+    /**
+     * Get information about nearby ground items
+     */
+    public String getNearbyGroundItems() {
+        return groundItemHandler.getNearbyGroundItems();
+    }
+    
+    /**
+     * Check if a specific ground item exists nearby
+     */
+    public boolean groundItemExists(String itemName) {
+        return groundItemHandler.groundItemExists(itemName);
+    }
+    
+    /**
+     * Get the distance to the closest ground item by name
+     */
+    public double getDistanceToGroundItem(String itemName) {
+        return groundItemHandler.getDistanceToGroundItem(itemName);
     }
     
     // ===== Task Management Methods =====
