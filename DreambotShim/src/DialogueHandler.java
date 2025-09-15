@@ -4,7 +4,11 @@ import org.dreambot.api.methods.interactive.NPCs;
 import org.dreambot.api.methods.interactive.Players;
 import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.methods.dialogues.Dialogues;
+import org.dreambot.api.methods.walking.impl.Walking;
+import org.dreambot.api.methods.map.Tile;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Handles NPC dialogue interactions with TaskManager integration
@@ -35,6 +39,11 @@ public class DialogueHandler {
             long maxWaitMillis = maxWaitTime * 1000L;
             boolean npcInteractionAttempted = false;
             
+            // Loop detection variables
+            String rootDialogueState = null;
+            Set<String> seenDialogueStates = new HashSet<>();
+            boolean rootDialogueFound = false;
+            
             Logger.log("Python->Java: Starting NPC dialogue handling" + (npcName.isEmpty() ? "" : " for NPC: " + npcName));
             taskManager.setCurrentStep("Handling NPC dialogue" + (npcName.isEmpty() ? "" : " with " + npcName));
 
@@ -43,7 +52,46 @@ public class DialogueHandler {
                 Logger.log("Python->Java: Looking for NPC: " + npcName);
                 NPC npc = NPCs.closest(npcName);
                 if (npc != null) {
-                    Logger.log("Python->Java: Found NPC " + npcName + ", attempting to interact...");
+                    Logger.log("Python->Java: Found NPC " + npcName + " at location: " + npc.getTile());
+                    
+                    // Check if we're within 1 tile of the NPC
+                    Tile playerTile = Players.getLocal().getTile();
+                    Tile npcTile = npc.getTile();
+                    int distance = (int) playerTile.distance(npcTile);
+                    
+                    Logger.log("Python->Java: Distance to NPC: " + distance + " tiles");
+                    
+                    // If we're not within 1 tile, walk closer
+                    if (distance > 1) {
+                        Logger.log("Python->Java: Walking to NPC location...");
+                        taskManager.setCurrentStep("Walking to NPC " + npcName);
+                        
+                        if (Walking.walk(npcTile)) {
+                            Logger.log("Python->Java: Walking command sent, waiting to get closer...");
+                            
+                            // Wait for walking to complete or get within 1 tile
+                            boolean reachedNPC = Sleep.sleepUntil(() -> {
+                                if (Players.getLocal() == null) return true; // Safety check
+                                return Players.getLocal().getTile().distance(npcTile) <= 1;
+                            }, 10000); // 10 second timeout for walking
+                            
+                            if (reachedNPC) {
+                                Logger.log("Python->Java: Successfully moved within range of NPC");
+                            } else {
+                                Logger.log("Python->Java: Failed to reach NPC within timeout, attempting interaction anyway");
+                            }
+                        } else {
+                            Logger.log("Python->Java: Failed to initiate walking to NPC");
+                            return createErrorResponse("Failed to walk to NPC: " + npcName);
+                        }
+                    } else {
+                        Logger.log("Python->Java: Already within range of NPC");
+                    }
+                    
+                    // Now attempt to interact with the NPC
+                    Logger.log("Python->Java: Attempting to interact with NPC...");
+                    taskManager.setCurrentStep("Talking to NPC " + npcName);
+                    
                     if (npc.interact("Talk-to")) {
                         Logger.log("Python->Java: Successfully interacted with NPC, waiting for dialogue...");
                         npcInteractionAttempted = true;
@@ -77,6 +125,31 @@ public class DialogueHandler {
                     if (Dialogues.inDialogue()) {
                         interactionCount++;
                         Logger.log("Python->Java: Dialogue detected, interaction #" + interactionCount);
+                        
+                        // Track dialogue state for loop detection
+                        String currentDialogueState = getCurrentDialogueState();
+                        
+                        // Skip empty dialogue states
+                        if (!currentDialogueState.isEmpty()) {
+                            // Check if we've seen this dialogue state before (loop detection)
+                            if (seenDialogueStates.contains(currentDialogueState)) {
+                                Logger.log("Python->Java: Loop detected! Encountered previously seen dialogue state. Breaking dialogue loop.");
+                                Logger.log("Python->Java: Repeated dialogue state: " + currentDialogueState.substring(0, Math.min(150, currentDialogueState.length())) + "...");
+                                long totalWaitTime = System.currentTimeMillis() - startTime;
+                                taskManager.setCurrentStep("Idle - Waiting for commands");
+                                return createSuccessResponse("Dialogue loop detected and broken", interactionCount, totalWaitTime);
+                            }
+                            
+                            // Set root dialogue state on first dialogue encounter
+                            if (rootDialogueState == null) {
+                                rootDialogueState = currentDialogueState;
+                                rootDialogueFound = true;
+                                Logger.log("Python->Java: Set root dialogue state: " + rootDialogueState.substring(0, Math.min(100, rootDialogueState.length())) + "...");
+                            }
+                            
+                            // Add this new dialogue state to our seen states
+                            seenDialogueStates.add(currentDialogueState);
+                        }
                         
                         // Handle the dialogue based on Tutorial Island pattern
                         if (Dialogues.canContinue()) {
@@ -171,6 +244,39 @@ public class DialogueHandler {
     }
 
     // Helper methods for dialogue handling
+    
+    /**
+     * Create a unique state identifier for the current dialogue
+     * This combines NPC text and available options to create a unique dialogue "fingerprint"
+     */
+    private String getCurrentDialogueState() {
+        StringBuilder stateBuilder = new StringBuilder();
+        
+        // Get NPC dialogue text
+        String npcText = Dialogues.getNPCDialogue();
+        if (npcText != null && !npcText.trim().isEmpty()) {
+            stateBuilder.append("NPC:").append(npcText.trim());
+        }
+        
+        // Get available options if any
+        if (Dialogues.areOptionsAvailable()) {
+            String[] options = Dialogues.getOptions();
+            if (options != null && options.length > 0) {
+                stateBuilder.append("|OPTIONS:");
+                for (int i = 0; i < options.length; i++) {
+                    if (i > 0) stateBuilder.append(",");
+                    stateBuilder.append(options[i]);
+                }
+            }
+        }
+        
+        // Add dialogue state flags to make the state more unique
+        stateBuilder.append("|CAN_CONTINUE:").append(Dialogues.canContinue());
+        stateBuilder.append("|HAS_OPTIONS:").append(Dialogues.areOptionsAvailable());
+        
+        return stateBuilder.toString();
+    }
+    
     private String createSuccessResponse(String message, int interactionCount, long totalWaitTime) {
         return "{"
             + "\"success\": true, "

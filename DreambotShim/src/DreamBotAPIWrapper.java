@@ -125,9 +125,10 @@ public class DreamBotAPIWrapper {
     
     /**
      * DreamBot-specific walking method - Enhanced with unlimited attempts until arrival and skip support
+     * Supports 3D coordinates with z (plane) parameter
      */
-    public String walkToLocation(int x, int y) {
-        return movementHandler.walkToLocation(x, y);
+    public String walkToLocation(int x, int y, int z) {
+        return movementHandler.walkToLocation(x, y, z);
     }
     
     /**

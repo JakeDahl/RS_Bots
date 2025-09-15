@@ -4,6 +4,8 @@ import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.methods.walking.impl.Walking;
 import org.dreambot.api.utilities.Timer;
+import org.dreambot.api.utilities.Sleep;
+import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.methods.interactive.Players;
 
 import java.util.List;
@@ -35,28 +37,42 @@ public class GroundItemHandler {
                 return "Ground item no longer exists: " + itemName;
             }
             
-            // Check if we need to walk to the item first
-            if (!groundItem.isOnScreen() || Calculations.distance(Players.getLocal().getTile(), groundItem.getTile()) > 5) {
+            Logger.log("Python->Java: Found ground item " + itemName + " at location: " + groundItem.getTile());
+            
+            // Check if we're within 1 tile of the ground item
+            Tile playerTile = Players.getLocal().getTile();
+            Tile itemTile = groundItem.getTile();
+            int distance = (int) playerTile.distance(itemTile);
+            
+            Logger.log("Python->Java: Distance to ground item: " + distance + " tiles");
+            
+            // If we're not within 1 tile, walk closer
+            if (distance > 1) {
+                Logger.log("Python->Java: Walking to ground item location...");
                 if (taskManager != null) {
                     taskManager.setCurrentStep("Walking to ground item: " + itemName);
                 }
                 
-                // Walk to the ground item
-                Tile itemTile = groundItem.getTile();
-                if (!Walking.walk(itemTile)) {
+                if (Walking.walk(itemTile)) {
+                    Logger.log("Python->Java: Walking command sent, waiting to get closer...");
+                    
+                    // Wait for walking to complete or get within 1 tile
+                    boolean reachedItem = Sleep.sleepUntil(() -> {
+                        if (Players.getLocal() == null) return true; // Safety check
+                        return Players.getLocal().getTile().distance(itemTile) <= 1;
+                    }, 10000); // 10 second timeout for walking
+                    
+                    if (reachedItem) {
+                        Logger.log("Python->Java: Successfully moved within range of ground item");
+                    } else {
+                        Logger.log("Python->Java: Failed to reach ground item within timeout, attempting pickup anyway");
+                    }
+                } else {
+                    Logger.log("Python->Java: Failed to initiate walking to ground item");
                     return "Failed to walk to ground item: " + itemName;
                 }
-                
-                // Wait for walking to complete
-                Timer walkTimer = new Timer(10000); // 10 seconds max wait
-                while (Walking.getDestination() != null && !walkTimer.finished()) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return "Interrupted while walking to ground item: " + itemName;
-                    }
-                }
+            } else {
+                Logger.log("Python->Java: Already within range of ground item");
             }
             
             // Refresh the ground item reference in case it changed
@@ -130,28 +146,42 @@ public class GroundItemHandler {
                 return "Ground item no longer exists with ID: " + itemId;
             }
             
-            // Check if we need to walk to the item first
-            if (!groundItem.isOnScreen() || Calculations.distance(Players.getLocal().getTile(), groundItem.getTile()) > 5) {
+            Logger.log("Python->Java: Found ground item ID " + itemId + " (" + groundItem.getName() + ") at location: " + groundItem.getTile());
+            
+            // Check if we're within 1 tile of the ground item
+            Tile playerTile = Players.getLocal().getTile();
+            Tile itemTile = groundItem.getTile();
+            int distance = (int) playerTile.distance(itemTile);
+            
+            Logger.log("Python->Java: Distance to ground item: " + distance + " tiles");
+            
+            // If we're not within 1 tile, walk closer
+            if (distance > 1) {
+                Logger.log("Python->Java: Walking to ground item location...");
                 if (taskManager != null) {
                     taskManager.setCurrentStep("Walking to ground item ID: " + itemId);
                 }
                 
-                // Walk to the ground item
-                Tile itemTile = groundItem.getTile();
-                if (!Walking.walk(itemTile)) {
+                if (Walking.walk(itemTile)) {
+                    Logger.log("Python->Java: Walking command sent, waiting to get closer...");
+                    
+                    // Wait for walking to complete or get within 1 tile
+                    boolean reachedItem = Sleep.sleepUntil(() -> {
+                        if (Players.getLocal() == null) return true; // Safety check
+                        return Players.getLocal().getTile().distance(itemTile) <= 1;
+                    }, 10000); // 10 second timeout for walking
+                    
+                    if (reachedItem) {
+                        Logger.log("Python->Java: Successfully moved within range of ground item");
+                    } else {
+                        Logger.log("Python->Java: Failed to reach ground item within timeout, attempting pickup anyway");
+                    }
+                } else {
+                    Logger.log("Python->Java: Failed to initiate walking to ground item");
                     return "Failed to walk to ground item ID: " + itemId;
                 }
-                
-                // Wait for walking to complete
-                Timer walkTimer = new Timer(10000); // 10 seconds max wait
-                while (Walking.getDestination() != null && !walkTimer.finished()) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return "Interrupted while walking to ground item ID: " + itemId;
-                    }
-                }
+            } else {
+                Logger.log("Python->Java: Already within range of ground item");
             }
             
             // Refresh the ground item reference in case it changed

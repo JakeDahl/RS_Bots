@@ -19,20 +19,25 @@ public class MovementHandler {
     
     /**
      * DreamBot-specific walking method - Enhanced with unlimited attempts until arrival and skip support
+     * Supports 3D coordinates with z (plane) parameter
      */
-    public String walkToLocation(int x, int y) {
+    public String walkToLocation(int x, int y, int z) {
         try {
-            taskManager.setCurrentStep("Walking to location (" + x + ", " + y + ")");
+            // Debug logging for parameter values
+            Logger.log("DEBUG: walkToLocation received parameters - x: " + x + " (type: int), y: " + y + " (type: int), z: " + z + " (type: int)");
             
-            Tile target = new Tile(x, y);
-            Logger.log("Python->Java: Walking to location (" + x + ", " + y + ") - Will not return until arrived or skipped");
+            taskManager.setCurrentStep("Walking to location (" + x + ", " + y + ", " + z + ")");
+            
+            Tile target = new Tile(x, y, z);
+            Logger.log("DEBUG: Created Tile object with coordinates (" + target.getX() + ", " + target.getY() + ", " + target.getZ() + ")");
+            Logger.log("Python->Java: Walking to location (" + x + ", " + y + ", " + z + ") - Will not return until arrived or skipped");
 
-            // Check if already at the target (within 3 tiles)
+            // Check if already at the target (within 3 tiles AND on same plane)
             if (Players.getLocal() != null) {
                 Tile currentTile = Players.getLocal().getTile();
-                if (currentTile.distance(target) <= 3) {
+                if (currentTile.distance(target) <= 3 && currentTile.getZ() == target.getZ()) {
                     taskManager.setCurrentStep("Idle - Waiting for commands");
-                    return "Walking to (" + x + ", " + y + ") - Already at destination";
+                    return "Walking to (" + x + ", " + y + ", " + z + ") - Already at destination";
                 }
             }
             
@@ -68,11 +73,11 @@ public class MovementHandler {
                 Logger.log("Python->Java: Distance to target: " + String.format("%.1f", currentDistance) + " tiles (attempt " + attempts + ")");
                 taskManager.setCurrentStep("Walking to (" + x + ", " + y + ") - " + String.format("%.1f", currentDistance) + " tiles away");
                 
-                // Check if we're within 3 tiles of the target - SUCCESS EXIT
-                if (currentDistance <= 3) {
+                // Check if we're within 3 tiles of the target AND on same plane - SUCCESS EXIT
+                if (currentDistance <= 3 && currentTile.getZ() == target.getZ()) {
                     Logger.log("Python->Java: Successfully arrived at destination after " + attempts + " attempts!");
                     taskManager.setCurrentStep("Idle - Waiting for commands");
-                    return "Walking to (" + x + ", " + y + ") - SUCCESS (arrived after " + attempts + " attempts)";
+                    return "Walking to (" + x + ", " + y + ", " + z + ") - SUCCESS (arrived after " + attempts + " attempts)";
                 }
                 
                 // Attempt to walk to the target
@@ -94,8 +99,8 @@ public class MovementHandler {
                         Tile newTile = Players.getLocal().getTile();
                         double newDistance = newTile.distance(target);
                         
-                        // Check if we've arrived
-                        if (newDistance <= 3) {
+                        // Check if we've arrived (within 3 tiles AND on same plane)
+                        if (newDistance <= 3 && newTile.getZ() == target.getZ()) {
                             Logger.log("Python->Java: Destination reached during movement!");
                             return true;
                         }
@@ -122,10 +127,10 @@ public class MovementHandler {
                         Tile finalTile = Players.getLocal().getTile();
                         double finalDistance = finalTile.distance(target);
                         
-                        if (finalDistance <= 3) {
+                        if (finalDistance <= 3 && finalTile.getZ() == target.getZ()) {
                             Logger.log("Python->Java: Successfully arrived at destination!");
                             taskManager.setCurrentStep("Idle - Waiting for commands");
-                            return "Walking to (" + x + ", " + y + ") - SUCCESS (arrived after " + attempts + " attempts)";
+                            return "Walking to (" + x + ", " + y + ", " + z + ") - SUCCESS (arrived after " + attempts + " attempts)";
                         }
                         
                         // Log progress made
