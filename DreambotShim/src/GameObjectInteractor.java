@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Handles game object interactions and object discovery
@@ -43,6 +44,8 @@ public class GameObjectInteractor {
         ACTION_OBJECT_MAP.put("recharge", new String[]{"Altar", "Prayer altar", "Shrine", "Obelisk"});
     }
     
+    private final Random random = new Random();
+    
     public GameObjectInteractor(TaskManager taskManager) {
         this.taskManager = taskManager;
     }
@@ -58,8 +61,21 @@ public class GameObjectInteractor {
             var gameObject = GameObjects.closest(objectName);
             if (gameObject != null && gameObject.interact()) {
                 Logger.log("Python->Java: Successfully clicked object: " + objectName);
+                
+                // Add delay after successful interaction (1000-2000ms)
+                int delayMs = 1000 + random.nextInt(1001); // 1000 + 0-1000 = 1000-2000ms
+                Logger.log("Python->Java: Adding post-interaction delay of " + delayMs + "ms");
+                taskManager.setCurrentStep("Waiting after interaction (" + delayMs + "ms)");
+                
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Logger.log("Python->Java: Delay interrupted: " + ie.getMessage());
+                    Thread.currentThread().interrupt(); // Restore interrupted status
+                }
+                
                 taskManager.setCurrentStep("Idle - Waiting for commands");
-                return "Clicked object: " + objectName + " - SUCCESS";
+                return "Clicked object: " + objectName + " - SUCCESS (delayed " + delayMs + "ms)";
             } else {
                 Logger.log("Python->Java: Failed to click object: " + objectName + " (not found or interaction failed)");
                 taskManager.setCurrentStep("Idle - Waiting for commands");

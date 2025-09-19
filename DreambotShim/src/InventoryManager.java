@@ -28,6 +28,81 @@ public class InventoryManager {
     }
     
     /**
+     * Check if inventory contains a specific item and return count
+     * Returns -1 if item not found, 0+ for actual count
+     */
+    public int checkInventoryForItem(String itemName, boolean useItemId) {
+        try {
+            Logger.log("Python->Java: Checking inventory for item: " + itemName + " (useItemId: " + useItemId + ")");
+            
+            if (useItemId) {
+                // Parse item as ID
+                try {
+                    int itemId = Integer.parseInt(itemName);
+                    
+                    if (Inventory.contains(itemId)) {
+                        int count = Inventory.count(itemId);
+                        Logger.log("Python->Java: Found " + count + " of item ID " + itemId + " in inventory");
+                        return count;
+                    } else {
+                        Logger.log("Python->Java: Item ID " + itemId + " not found in inventory");
+                        return -1;
+                    }
+                } catch (NumberFormatException e) {
+                    Logger.log("Python->Java: Invalid item ID provided: " + itemName);
+                    return -1;
+                }
+            } else {
+                // Use item as name
+                if (Inventory.contains(itemName)) {
+                    int count = Inventory.count(itemName);
+                    Logger.log("Python->Java: Found " + count + " of '" + itemName + "' in inventory");
+                    return count;
+                } else {
+                    Logger.log("Python->Java: Item '" + itemName + "' not found in inventory");
+                    return -1;
+                }
+            }
+        } catch (Exception e) {
+            Logger.log("Python->Java: Exception in checkInventoryForItem: " + e.getMessage());
+            e.printStackTrace();
+            return -1;
+        }
+    }
+    
+    /**
+     * Check if inventory contains a specific item (boolean result)
+     * Simple true/false check without count
+     */
+    public boolean inventoryContainsItem(String itemName, boolean useItemId) {
+        try {
+            Logger.log("Python->Java: Checking if inventory contains item: " + itemName + " (useItemId: " + useItemId + ")");
+            
+            if (useItemId) {
+                // Parse item as ID
+                try {
+                    int itemId = Integer.parseInt(itemName);
+                    boolean contains = Inventory.contains(itemId);
+                    Logger.log("Python->Java: Inventory " + (contains ? "contains" : "does not contain") + " item ID " + itemId);
+                    return contains;
+                } catch (NumberFormatException e) {
+                    Logger.log("Python->Java: Invalid item ID provided: " + itemName);
+                    return false;
+                }
+            } else {
+                // Use item as name
+                boolean contains = Inventory.contains(itemName);
+                Logger.log("Python->Java: Inventory " + (contains ? "contains" : "does not contain") + " '" + itemName + "'");
+                return contains;
+            }
+        } catch (Exception e) {
+            Logger.log("Python->Java: Exception in inventoryContainsItem: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
      * Use one item on another item in inventory (item combination/crafting)
      */
     public String useItemOnItem(String primaryItem, String secondaryItem, boolean useItemIds) {

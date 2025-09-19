@@ -220,6 +220,22 @@ public class DreamBotAPIWrapper {
         return inventoryManager.performItemAction(action, item, target, useItemIds, targetType);
     }
     
+    /**
+     * Check if inventory contains a specific item and return count
+     * Returns -1 if item not found, 0+ for actual count
+     */
+    public int checkInventoryForItem(String itemName, boolean useItemId) {
+        return inventoryManager.checkInventoryForItem(itemName, useItemId);
+    }
+    
+    /**
+     * Check if inventory contains a specific item (boolean result)
+     * Simple true/false check without count
+     */
+    public boolean inventoryContainsItem(String itemName, boolean useItemId) {
+        return inventoryManager.inventoryContainsItem(itemName, useItemId);
+    }
+    
     // ===== Dialogue Methods (delegated to DialogueHandler) =====
     
     /**
