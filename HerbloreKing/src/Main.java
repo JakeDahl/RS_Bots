@@ -88,6 +88,11 @@ public class Main extends AbstractScript {
             return State.MAKING_UNF_POTIONS;
         }
         
+        // If we have vials of water but no ranarr (clean or grimy), deposit the excess vials
+        if (hasVialsOfWater && !hasCleanRanarr && !hasGrimyRanarr && !hasRanarrPotionUnf) {
+            return State.BANKING;
+        }
+        
         // If we have grimy ranarr, clean them (but only if bank is closed)
         if (hasGrimyRanarr) {
             if (Bank.isOpen()) {
@@ -151,6 +156,16 @@ public class Main extends AbstractScript {
                 if (Inventory.contains("Ranarr weed") && !Inventory.contains("Vial of water")) {
                     Logger.log("Depositing clean ranarr weed...");
                     Bank.depositAll("Ranarr weed");
+                    Sleep.sleep(randomSleep(1000, 1500));
+                }
+                
+                // Deposit excess vials of water when no ranarr is available
+                if (Inventory.contains("Vial of water") && 
+                    !Inventory.contains("Ranarr weed") && 
+                    !Inventory.contains("Grimy ranarr weed") && 
+                    !Inventory.contains("Ranarr potion (unf)")) {
+                    Logger.log("Depositing excess vials of water (no ranarr available)...");
+                    Bank.depositAll("Vial of water");
                     Sleep.sleep(randomSleep(1000, 1500));
                 }
             }
